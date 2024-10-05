@@ -2,6 +2,8 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
+use bytemuck::{Pod, Zeroable};
+use wgpu::util::DeviceExt;
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -15,6 +17,7 @@ struct GfxState {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     surface: wgpu::Surface<'static>,
+    vertex_buffer: wgpu::Buffer,
     render_pipeline: wgpu::RenderPipeline,
 }
 
@@ -24,6 +27,43 @@ pub struct Raindeer {
     event_loop: Option<EventLoop<()>>,
     gfx_state: Option<GfxState>,
 }
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+impl Vertex {
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x3,
+                }
+            ]
+        }
+    }
+}
+
+unsafe impl Zeroable for Vertex {}
+unsafe impl Pod for Vertex {}
+
+const VERTICES: &[Vertex] = &[
+    Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
+    Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
+    Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
+];
 
 impl ApplicationHandler for Raindeer {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -163,7 +203,9 @@ impl Raindeer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main", // 1.
-                buffers: &[], // 2.
+                buffers: &[
+                    Vertex::desc(),
+                ], // 2.
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState { // 3.
@@ -198,7 +240,16 @@ impl Raindeer {
             cache: None, // 6.
         });
 
+        let vertex_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(VERTICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            }
+        );
+
         self.gfx_state = Some(GfxState {
+            vertex_buffer,
             device,
             queue,
             surface,
@@ -242,8 +293,9 @@ impl Raindeer {
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&gfx.render_pipeline); // 2.
-            render_pass.draw(0..3, 0..1); // 3.
+            render_pass.set_pipeline(&gfx.render_pipeline);
+            render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
+            render_pass.draw(0..VERTICES.len() as u32, 0..1);
         }
 
         // submit will accept anything that implements IntoIter
