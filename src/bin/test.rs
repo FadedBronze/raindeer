@@ -3,10 +3,10 @@ use std::process::ExitCode;
 use raindeer::Raindeer;
 
 fn main() -> ExitCode {
-    let mut gui = Raindeer::new();
+    let mut renderer = Raindeer::new();
 
     loop {
-        if let Err(exitcode) = gui.run() {
+        if let Err(exitcode) = renderer.run() {
             break exitcode;
         }
     }
