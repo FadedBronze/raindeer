@@ -1,4 +1,5 @@
-use nalgebra::{Matrix3, Vector2};
+use cgmath::{Matrix3, Matrix4, SquareMatrix, Transform2, Transform3, Vector2, Vector3, Zero};
+
 use crate::{color::RDColor, triangulate::triangulate, RDObjectGFXData, Vertex};
 
 pub struct RDNode {
@@ -11,7 +12,7 @@ pub struct RDObject {
     color: RDColor,
     nodes: Vec<RDNode>,
     indicies: Vec<u32>,
-    transform: Matrix3<f32>,
+    transform: Matrix4<f32>,
 }
 
 impl RDObject {
@@ -20,10 +21,8 @@ impl RDObject {
         let mut verticies = vec![];
 
         for node in self.nodes.iter() {
-            let new_position = self.transform.transform_vector(&node.position);
-
             verticies.push(Vertex {
-                position: new_position.into(),
+                position: node.position.into(),
                 texture_position: node.texture_position.into(),
                 id,
             });
@@ -31,6 +30,7 @@ impl RDObject {
 
         (verticies, self.indicies.clone(), RDObjectGFXData {
             texture: self.texture,
+            transform: self.transform.into(),
             color: self.color.clone().into(),
         })
     }
@@ -101,15 +101,17 @@ impl RDPath {
             for point in path {
                 nodes.push(RDNode {
                     position: *point,
-                    texture_position: Vector2::zeros(),
+                    texture_position: Vector2::zero(),
                 });
             }
         }
 
+        let transform: Matrix4<f32> = Matrix4::from_translation(Vector3::new(0.3, 0.1, 0.0));
+
         RDObject {
             texture: 0,
             color: self.color.clone(),
-            transform: Matrix3::identity(),
+            transform,
             nodes,
             indicies,
         }

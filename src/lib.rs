@@ -2,14 +2,12 @@ mod triangulate;
 pub mod color;
 pub mod path_builder;
 
-use std::num::NonZeroU64;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
 use bytemuck::{Pod, Zeroable};
 use path_builder::RDObject;
-use wgpu::util::RenderEncoder;
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -41,7 +39,7 @@ pub struct Raindeer {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-struct Vertex {
+pub struct Vertex {
     position: [f32; 2],
     texture_position: [f32; 2],
     id: u32,
@@ -51,6 +49,7 @@ struct Vertex {
 #[derive(Copy, Clone, Debug)]
 pub struct RDObjectGFXData {
     color: [f32; 4],
+    transform: [[f32; 4]; 4],
     texture: u32,
 }
 

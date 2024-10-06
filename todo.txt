@@ -1,6 +1,0 @@
-path data -> object -> gfx data
-
-1. use uniform buffers to store transforms
-2. don't apply transforms right away
-3. test transform
-4. create nice api for transforms

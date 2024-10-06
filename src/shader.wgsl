@@ -6,6 +6,7 @@ struct VertexInput {
 
 struct Object {
     color: vec4<f32>,
+    transform: mat4x4<f32>,
     texture: u32,
 };
 
@@ -25,7 +26,7 @@ fn vs_main(
     var out: VertexOutput;
 
     out.color = object.color;
-    out.clip_position = vec4<f32>(model.position, 1.0, 1.0);
+    out.clip_position = object.transform * vec4<f32>(model.position, 1.0, 1.0);
 
     return out;
 }
