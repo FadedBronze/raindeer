@@ -1,11 +1,15 @@
 mod triangulate;
+pub mod color;
+pub mod path_builder;
 
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
 use bytemuck::{Pod, Zeroable};
-use wgpu::util::DeviceExt;
+use nalgebra::Vector2;
+use path_builder::RDObject;
+use wgpu::util::{DeviceExt, RenderEncoder};
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -19,11 +23,14 @@ struct GfxState {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     surface: wgpu::Surface<'static>,
-    vertex_buffer: wgpu::Buffer,
     render_pipeline: wgpu::RenderPipeline,
+    
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
 }
 
 pub struct Raindeer {
+    objects: Vec<RDObject>,
     size: winit::dpi::PhysicalSize<u32>,
     window: Option<Arc<Window>>,
     event_loop: Option<EventLoop<()>>,
@@ -35,7 +42,7 @@ pub struct Raindeer {
 struct Vertex {
     position: [f32; 2],
     texture_position: [f32; 2],
-    color: [f32; 3],
+    color: [f32; 4],
     texture: u32,
 }
 
@@ -58,10 +65,10 @@ impl Vertex {
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
                     shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x3,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 7]>() as wgpu::BufferAddress,
+                    offset: std::mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
                     shader_location: 3,
                     format: wgpu::VertexFormat::Uint32,
                 }
@@ -130,6 +137,7 @@ impl Raindeer {
         event_loop.set_control_flow(ControlFlow::Poll);
 
         Self {
+            objects: vec![],
             size: PhysicalSize::new(800, 800),
             window: None,
             gfx_state: None,
@@ -146,6 +154,10 @@ impl Raindeer {
             gfx.config.height = new_size.height;
             gfx.surface.configure(&gfx.device, &gfx.config);
         }
+    }
+
+    pub fn add_object(&mut self, object: RDObject) {
+        self.objects.push(object);
     }
 
     pub async fn async_init_graphics(&mut self, window: Arc<Window>) {
@@ -248,15 +260,26 @@ impl Raindeer {
             cache: None, // 6.
         });
 
-        let vertex_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer(
+            &wgpu::BufferDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&[0]),
-                usage: wgpu::BufferUsages::VERTEX,
+                mapped_at_creation: false,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                size: std::mem::size_of::<Vertex>() as u64 * 16384,
+            }
+        );
+        
+        let index_buffer = device.create_buffer(
+            &wgpu::BufferDescriptor {
+                label: Some("Index Buffer"),
+                mapped_at_creation: false,
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                size: std::mem::size_of::<u32>() as u64 * 32768,
             }
         );
 
         self.gfx_state = Some(GfxState {
+            index_buffer,
             vertex_buffer,
             device,
             queue,
@@ -270,8 +293,29 @@ impl Raindeer {
         pollster::block_on(self.async_init_graphics(window));
     }
 
+    fn collect_gfx_data(&self) -> (Vec<Vertex>, Vec<u32>) {
+        let mut all_verticies = vec![];
+        let mut all_indicies = vec![];
+
+        let mut accumulated_size = 0;
+
+        for object in self.objects.iter() {
+            let (mut verticies, indicies) = object.gfx_output();
+            all_verticies.append(&mut verticies);
+
+            for index in indicies.iter() {
+                all_indicies.push(index + accumulated_size);
+            }
+
+            accumulated_size += verticies.len() as u32;
+        }
+
+        (all_verticies, all_indicies)
+    }
+
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let Some(ref mut gfx) = self.gfx_state else { panic!("gfx state uninitialized"); };
+        let mut gfx_wrapper = self.gfx_state.take();
+        let Some(ref mut gfx) = gfx_wrapper else { panic!("gfx state uninitialized"); };
 
         let output = gfx.surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -279,6 +323,11 @@ impl Raindeer {
         let mut encoder = gfx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder"),
         });
+
+        let (verticies, indicies) = self.collect_gfx_data();
+
+        gfx.queue.write_buffer(&gfx.vertex_buffer, 0, bytemuck::cast_slice(&verticies));
+        gfx.queue.write_buffer(&gfx.index_buffer, 0, bytemuck::cast_slice(&indicies));
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -303,12 +352,15 @@ impl Raindeer {
 
             render_pass.set_pipeline(&gfx.render_pipeline);
             render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
-            //render_pass.draw(0..VERTICES.len() as u32, 0..1);
+            render_pass.set_index_buffer(gfx.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..indicies.len() as u32, 0, 0..1);
         }
 
         // submit will accept anything that implements IntoIter
         gfx.queue.submit(std::iter::once(encoder.finish()));
         output.present();
+
+        self.gfx_state = gfx_wrapper;
 
         Ok(())
     }
