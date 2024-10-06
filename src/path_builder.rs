@@ -1,21 +1,22 @@
 use nalgebra::{Matrix3, Vector2};
-use crate::{color::RDColor, triangulate::triangulate, Vertex};
+use crate::{color::RDColor, triangulate::triangulate, RDObjectGFXData, Vertex};
 
 pub struct RDNode {
-    color: RDColor,
     position: Vector2<f32>,
     texture_position: Vector2<f32>,
-    texture: u32,
 }
 
 pub struct RDObject {
+    texture: u32,
+    color: RDColor,
     nodes: Vec<RDNode>,
     indicies: Vec<u32>,
     transform: Matrix3<f32>,
 }
 
 impl RDObject {
-    pub fn gfx_output(&self) -> (Vec<Vertex>, Vec<u32>) {
+    //implicitly relies on ordering
+    pub fn gfx_output(&self, id: u32) -> (Vec<Vertex>, Vec<u32>, RDObjectGFXData) {
         let mut verticies = vec![];
 
         for node in self.nodes.iter() {
@@ -24,12 +25,14 @@ impl RDObject {
             verticies.push(Vertex {
                 position: new_position.into(),
                 texture_position: node.texture_position.into(),
-                texture: node.texture,
-                color: node.color.clone().into(),
+                id,
             });
         }
 
-        (verticies, self.indicies.clone())
+        (verticies, self.indicies.clone(), RDObjectGFXData {
+            texture: self.texture,
+            color: self.color.clone().into(),
+        })
     }
 }
 
@@ -97,15 +100,15 @@ impl RDPath {
 
             for point in path {
                 nodes.push(RDNode {
-                    color: self.color.clone(),
                     position: *point,
                     texture_position: Vector2::zeros(),
-                    texture: 0,
                 });
             }
         }
 
         RDObject {
+            texture: 0,
+            color: self.color.clone(),
             transform: Matrix3::identity(),
             nodes,
             indicies,
