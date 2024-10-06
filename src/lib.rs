@@ -1,3 +1,5 @@
+mod triangulate;
+
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -31,8 +33,10 @@ pub struct Raindeer {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
-    position: [f32; 3],
+    position: [f32; 2],
+    texture_position: [f32; 2],
     color: [f32; 3],
+    texture: u32,
 }
 
 impl Vertex {
@@ -44,12 +48,22 @@ impl Vertex {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    shader_location: 2,
                     format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<[f32; 7]>() as wgpu::BufferAddress,
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Uint32,
                 }
             ]
         }
@@ -58,12 +72,6 @@ impl Vertex {
 
 unsafe impl Zeroable for Vertex {}
 unsafe impl Pod for Vertex {}
-
-const VERTICES: &[Vertex] = &[
-    Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
-    Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
-    Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
-];
 
 impl ApplicationHandler for Raindeer {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -243,7 +251,7 @@ impl Raindeer {
         let vertex_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
+                contents: bytemuck::cast_slice(&[0]),
                 usage: wgpu::BufferUsages::VERTEX,
             }
         );
@@ -295,7 +303,7 @@ impl Raindeer {
 
             render_pass.set_pipeline(&gfx.render_pipeline);
             render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
-            render_pass.draw(0..VERTICES.len() as u32, 0..1);
+            //render_pass.draw(0..VERTICES.len() as u32, 0..1);
         }
 
         // submit will accept anything that implements IntoIter
