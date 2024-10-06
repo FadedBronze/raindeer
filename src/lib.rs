@@ -7,9 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytemuck::{Pod, Zeroable};
-use nalgebra::Vector2;
 use path_builder::RDObject;
-use wgpu::util::{DeviceExt, RenderEncoder};
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{ElementState, KeyEvent, WindowEvent};
