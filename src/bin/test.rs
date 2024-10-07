@@ -1,4 +1,4 @@
-use std::process::ExitCode;
+use std::{f32::consts::PI, process::ExitCode};
 
 use raindeer::{color::RDColor, path_builder::RDPath, Raindeer};
 
@@ -13,7 +13,9 @@ fn main() -> ExitCode {
         .close()
         .fill(RDColor::RED);
 
-    let square = path.make_object();
+    let mut square = path.make_object();
+
+    square.rotation = PI / 4.0;
 
     renderer.add_object(square);
 

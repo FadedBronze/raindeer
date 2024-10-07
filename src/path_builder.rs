@@ -1,4 +1,4 @@
-use cgmath::{Matrix3, Matrix4, SquareMatrix, Transform2, Transform3, Vector2, Vector3, Zero};
+use cgmath::{Matrix4, Rad, Vector2, Vector3, Zero};
 
 use crate::{color::RDColor, triangulate::triangulate, RDObjectGFXData, Vertex};
 
@@ -12,7 +12,9 @@ pub struct RDObject {
     color: RDColor,
     nodes: Vec<RDNode>,
     indicies: Vec<u32>,
-    transform: Matrix4<f32>,
+    pub position: Vector2<f32>,
+    pub scale: Vector2<f32>,
+    pub rotation: f32,
 }
 
 impl RDObject {
@@ -28,9 +30,14 @@ impl RDObject {
             });
         }
 
+        let transform = 
+            Matrix4::from_translation(Vector3::new(self.position.x, self.position.y, 0.0)) *
+            Matrix4::from_angle_z(Rad(self.rotation)) *
+            Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, 0.0);
+
         (verticies, self.indicies.clone(), RDObjectGFXData {
             texture: self.texture,
-            transform: self.transform.into(),
+            transform: transform.into(),
             color: self.color.clone().into(),
         })
     }
@@ -106,14 +113,14 @@ impl RDPath {
             }
         }
 
-        let transform: Matrix4<f32> = Matrix4::from_translation(Vector3::new(0.3, 0.1, 0.0));
-
         RDObject {
             texture: 0,
             color: self.color.clone(),
-            transform,
             nodes,
             indicies,
+            position: Vector2::zero(),
+            scale: Vector2::new(1.0, 1.0),
+            rotation: 0.0,
         }
     }
 }
