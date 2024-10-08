@@ -49,11 +49,24 @@ impl RDObject {
 
 //cap style
 //stroke style (in, out, middle)
+pub struct RDStroke {
+    pub weight: f32,
+    pub color: RDColor,
+}
+
+impl Default for RDStroke {
+    fn default() -> Self {
+        Self {
+            weight: 10.0,
+            color: RDColor::BLACK,
+        }
+    }
+}
+
 pub struct RDPath {
     pub points: Vec<Vec<Vector2<f32>>>,
     pub color: RDColor,
-    pub stroke: RDColor,
-    pub stroke_weight: f32,
+    pub stroke: RDStroke,
     pub closed: bool,
 }
 
@@ -63,8 +76,7 @@ impl RDPath {
             closed: false,
             points: vec![],
             color: RDColor::WHITE,
-            stroke: RDColor::BLACK,
-            stroke_weight: 0.0,
+            stroke: RDStroke::default(),
         }
     }
 
@@ -93,8 +105,8 @@ impl RDPath {
         self
     }
     
-    pub fn stroke(mut self, color: RDColor) -> Self {
-        self.stroke = color;
+    pub fn stroke(mut self, config: RDStroke) -> Self {
+        self.stroke = config;
         self
     }
 

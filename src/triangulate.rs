@@ -2,7 +2,6 @@ use cgmath::Vector2;
 
 //1. no colinear edges
 //2. no clockwise verticies
-
 pub(crate) fn triangulate(vertices: &[Vector2<f32>]) -> Vec<u32> {
     let mut vertex_ids = vec![];
     let mut indicies = vec![];
