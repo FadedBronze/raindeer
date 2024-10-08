@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use cgmath::{Matrix4, Rad, Vector2, Vector3, Zero};
 
 use crate::{color::RDColor, triangulate::triangulate, RDObjectGFXData, Vertex};
@@ -7,7 +9,7 @@ pub struct RDNode {
     texture_position: Vector2<f32>,
 }
 
-pub struct RDObject {
+pub struct RDPrimative {
     texture: u32,
     color: RDColor,
     nodes: Vec<RDNode>,
@@ -17,7 +19,59 @@ pub struct RDObject {
     pub rotation: f32,
 }
 
+pub struct RDObject {
+    pub primatives: Vec<RDPrimative>,
+}
+
 impl RDObject {
+    pub fn rotate_deg(&mut self, deg: f32) {
+        for primative in self.primatives.iter_mut() {
+            primative.rotation += deg * PI / 180.0;
+        }
+    }
+
+    pub fn translate(&mut self, translation: Vector2<f32>) {
+        for primative in self.primatives.iter_mut() {
+            primative.position += translation;
+        }
+    }
+
+    pub fn scale(&mut self, scale: Vector2<f32>) {
+        for primative in self.primatives.iter_mut() {
+            primative.scale += scale;
+        }
+    }
+
+    pub fn gfx_storage_output(&self) -> Vec<RDObjectGFXData> {
+        let mut storage = vec![];
+
+        for primative in self.primatives.iter() {
+            let storg = primative.gfx_storage_output();
+            storage.push(storg);
+        }
+
+        storage 
+    }
+
+    pub fn gfx_vertex_output(&self, id: u32) -> (Vec<Vertex>, Vec<u32>) {
+        let mut vertices = vec![];
+        let mut indices = vec![];
+
+        for primative in self.primatives.iter() {
+            let (mut verts, inds) = primative.gfx_vertex_output(id);
+
+            for index in inds.iter() {
+                indices.push(index + vertices.len() as u32);
+            }
+            
+            vertices.append(&mut verts);
+        }
+
+        (vertices, indices)
+    }
+}
+
+impl RDPrimative {
     //implicitly relies on ordering
     pub fn gfx_vertex_output(&self, id: u32) -> (Vec<Vertex>, Vec<u32>) {
         let mut verticies = vec![];
@@ -130,13 +184,15 @@ impl RDPath {
         }
 
         RDObject {
-            texture: 0,
-            color: self.color.clone(),
-            nodes,
-            indicies,
-            position: Vector2::zero(),
-            scale: Vector2::new(1.0, 1.0),
-            rotation: 0.0,
+            primatives: vec![RDPrimative {
+                texture: 0,
+                color: self.color.clone(),
+                nodes,
+                indicies,
+                position: Vector2::zero(),
+                scale: Vector2::new(1.0, 1.0),
+                rotation: 0.0,
+            }]
         }
     }
 }

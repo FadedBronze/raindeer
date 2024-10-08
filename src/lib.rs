@@ -349,7 +349,7 @@ impl Raindeer {
         let mut all_storage = vec![];
 
         for object in self.objects.iter() {
-            all_storage.push(object.gfx_storage_output());
+            all_storage.append(&mut object.gfx_storage_output());
         }
 
         all_storage
