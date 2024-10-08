@@ -29,6 +29,14 @@ fn intersect_lines(a: Vector2<f32>, b: Vector2<f32>, c: Vector2<f32>, d: Vector2
     Some(Vector2::new(x, y))
 }
 
+pub(crate) fn perp_left(v: Vector2<f32>) -> Vector2<f32> {
+    Vector2::new(-v.y, v.x)
+}
+
+pub(crate) fn perp_right(v: Vector2<f32>) -> Vector2<f32> {
+    Vector2::new(v.y, -v.x)
+}
+
 pub(crate) fn triangulate_stroke(points: &[Vector2<f32>], stroke: &RDStroke) -> (Vec<Vector2<f32>>, Vec<u32>) {
     let mut vertices = vec![];
     let mut indicies = vec![];
@@ -37,32 +45,24 @@ pub(crate) fn triangulate_stroke(points: &[Vector2<f32>], stroke: &RDStroke) -> 
         let last_idx = if i != 0 { i - 1 } else { points.len() - 1 };
         let next_idx = if i + 1 == points.len() { 0 } else { i + 1 }; 
 
-        let current: Vector2<f32> = points[i];
-        let last: Vector2<f32> = points[last_idx] - current;
-        let next: Vector2<f32> = points[next_idx] - current;
-
-        let perp_last = Vector2::new(-last.y, last.x);
-        let perp_next = Vector2::new(-next.y, next.x);
-
-        let offset_last = perp_last.normalize() * stroke.weight * 0.5;
-        let offset_next = perp_next.normalize() * stroke.weight * 0.5;
-
-        let intersection1 = intersect_lines(
-            last + offset_last, 
-            offset_last, 
-            next + offset_next, 
-            offset_next,
-        );
+        let a: Vector2<f32> = points[last_idx];
+        let b: Vector2<f32> = points[i];
+        let c: Vector2<f32> = points[next_idx];
         
-        let intersection2 = intersect_lines(
-            last - offset_last, 
-            -offset_last, 
-            next - offset_next, 
-            -offset_next,
-        );
+        println!("{:?}", a);
+        println!("{:?}", c);
 
-        vertices.push(intersection1.unwrap());
-        vertices.push(intersection2.unwrap());
+        let offset_a = perp_left(a-b).normalize() * stroke.weight * 0.5;
+        let offset_c = perp_right(c-b).normalize() * stroke.weight * 0.5;
+
+        //println!("{:?}", offset_c);
+        //println!("{:?}", offset_a);
+
+        let intersect1 = intersect_lines(a + offset_a, b + offset_a, c + offset_c, b + offset_c);
+        let intersect2 = intersect_lines(a - offset_a, b - offset_a, c - offset_c, b - offset_c);
+
+        vertices.push(intersect1.unwrap());
+        vertices.push(intersect2.unwrap());
     }
 
     for i in 0..vertices.len()/2-1 {
@@ -139,6 +139,8 @@ pub(crate) fn within_triangle(a: Vector2<f32>, b: Vector2<f32>, c: Vector2<f32>,
 
 #[cfg(test)]
 mod tests {
+    use crate::color::RDColor;
+
     use super::*;
 
     #[test]
@@ -171,8 +173,10 @@ mod tests {
             Vector2::new(10.0, 0.0),
             Vector2::new(10.0, 10.0),
             Vector2::new(0.0, 10.0),
-        ], &RDStroke::default()), (vec![
-            Vector2::new(5.0, 5.0),
+        ], &RDStroke {
+            weight: 10.0,
+            color: RDColor::BLACK
+        }), (vec![
             Vector2::new(-5.0, -5.0),
             Vector2::new(5.0, 5.0),
             Vector2::new(15.0, -5.0),
@@ -180,6 +184,35 @@ mod tests {
             Vector2::new(15.0, 15.0),
             Vector2::new(5.0, 5.0),
             Vector2::new(-5.0, 15.0),
+            Vector2::new(5.0, 5.0),
+        ], vec![
+            0, 1, 3,
+            0, 3, 2,
+            2, 3, 5,
+            2, 5, 4,
+            4, 5, 7,
+            4, 7, 6,
+            6, 7, 1,
+            6, 1, 0
+        ]));
+        
+        assert_eq!(triangulate_stroke(&vec![
+            Vector2::new(0.0, 0.0),
+            Vector2::new(10.0, 0.0),
+            Vector2::new(10.0, 10.0),
+            Vector2::new(0.0, 10.0),
+        ], &RDStroke {
+            weight: 2.0,
+            color: RDColor::BLACK
+        }), (vec![
+            Vector2::new(-1.0, -1.0),
+            Vector2::new(1.0, 1.0),
+            Vector2::new(11.0, -1.0),
+            Vector2::new(9.0, 1.0),
+            Vector2::new(11.0, 11.0),
+            Vector2::new(9.0, 9.0),
+            Vector2::new(-1.0, 11.0),
+            Vector2::new(1.0, 9.0),
         ], vec![
             0, 1, 3,
             0, 3, 2,
