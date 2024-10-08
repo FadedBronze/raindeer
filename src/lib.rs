@@ -31,7 +31,11 @@ struct GfxState {
 
 pub struct Raindeer {
     objects: Vec<RDObject>,
+    new_object_cache: bool,
+    indicies_count: u32,
+
     size: winit::dpi::PhysicalSize<u32>,
+
     window: Option<Arc<Window>>,
     event_loop: Option<EventLoop<()>>,
     gfx_state: Option<GfxState>,
@@ -142,6 +146,8 @@ impl Raindeer {
         event_loop.set_control_flow(ControlFlow::Poll);
 
         Self {
+            indicies_count: 0,
+            new_object_cache: false,
             objects: vec![],
             size: PhysicalSize::new(800, 800),
             window: None,
@@ -162,6 +168,7 @@ impl Raindeer {
     }
 
     pub fn add_object(&mut self, object: RDObject) {
+        self.new_object_cache = true;
         self.objects.push(object);
     }
 
@@ -338,17 +345,24 @@ impl Raindeer {
         pollster::block_on(self.async_init_graphics(window));
     }
 
-    fn collect_gfx_data(&self) -> (Vec<Vertex>, Vec<u32>, Vec<RDObjectGFXData>) {
+    fn collect_gfx_storage_data(&self) -> Vec<RDObjectGFXData> {
+        let mut all_storage = vec![];
+
+        for object in self.objects.iter() {
+            all_storage.push(object.gfx_storage_output());
+        }
+
+        all_storage
+    }
+
+    fn collect_gfx_vertex_data(&self) -> (Vec<Vertex>, Vec<u32>) {
         let mut all_verticies = vec![];
         let mut all_indicies = vec![];
-        let mut all_storage = vec![];
 
         let mut accumulated_size = 0;
 
         for (i, object) in self.objects.iter().enumerate() {
-            let (mut verticies, indicies, storage) = object.gfx_output(i as u32);
-
-            all_storage.push(storage);
+            let (mut verticies, indicies) = object.gfx_vertex_output(i as u32);
 
             all_verticies.append(&mut verticies);
 
@@ -359,7 +373,7 @@ impl Raindeer {
             accumulated_size += verticies.len() as u32;
         }
 
-        (all_verticies, all_indicies, all_storage)
+        (all_verticies, all_indicies)
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -373,10 +387,18 @@ impl Raindeer {
             label: Some("Render Encoder"),
         });
 
-        let (verticies, indicies, storage) = self.collect_gfx_data();
+        if self.new_object_cache {
+            let (verticies, indicies) = self.collect_gfx_vertex_data();
 
-        gfx.queue.write_buffer(&gfx.vertex_buffer, 0, bytemuck::cast_slice(&verticies));
-        gfx.queue.write_buffer(&gfx.index_buffer, 0, bytemuck::cast_slice(&indicies));
+            gfx.queue.write_buffer(&gfx.vertex_buffer, 0, bytemuck::cast_slice(&verticies));
+            gfx.queue.write_buffer(&gfx.index_buffer, 0, bytemuck::cast_slice(&indicies));
+
+            self.indicies_count = indicies.len() as u32;
+            self.new_object_cache = false;
+        }
+
+        let storage = self.collect_gfx_storage_data();
+
         gfx.queue.write_buffer(&gfx.storage_buffer, 0, bytemuck::cast_slice(&storage));
 
         {
@@ -404,7 +426,7 @@ impl Raindeer {
             render_pass.set_bind_group(0, &gfx.bind_group, &[]);
             render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
             render_pass.set_index_buffer(gfx.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..indicies.len() as u32, 0, 0..1);
+            render_pass.draw_indexed(0..self.indicies_count as u32, 0, 0..1);
         }
 
         // submit will accept anything that implements IntoIter

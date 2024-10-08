@@ -19,7 +19,7 @@ pub struct RDObject {
 
 impl RDObject {
     //implicitly relies on ordering
-    pub fn gfx_output(&self, id: u32) -> (Vec<Vertex>, Vec<u32>, RDObjectGFXData) {
+    pub fn gfx_vertex_output(&self, id: u32) -> (Vec<Vertex>, Vec<u32>) {
         let mut verticies = vec![];
 
         for node in self.nodes.iter() {
@@ -30,16 +30,20 @@ impl RDObject {
             });
         }
 
+        (verticies, self.indicies.clone())
+    }
+
+    pub fn gfx_storage_output(&self) -> RDObjectGFXData {
         let transform = 
             Matrix4::from_translation(Vector3::new(self.position.x, self.position.y, 0.0)) *
             Matrix4::from_angle_z(Rad(self.rotation)) *
             Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, 0.0);
 
-        (verticies, self.indicies.clone(), RDObjectGFXData {
+        RDObjectGFXData {
             texture: self.texture,
             transform: transform.into(),
             color: self.color.clone().into(),
-        })
+        }
     }
 }
 
