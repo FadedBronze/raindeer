@@ -1,4 +1,4 @@
-use cgmath::{Vector2, Zero};
+use cgmath::{InnerSpace, Vector2};
 
 use crate::path_builder::RDStroke;
 
@@ -13,26 +13,79 @@ fn intersect_lines(a: Vector2<f32>, b: Vector2<f32>, c: Vector2<f32>, d: Vector2
     let intercept_ab = a.y - slope_ab * a.x;
     let intercept_cd = c.y - slope_cd * c.x;    
     
-    if slope_ab == f32::INFINITY {
+    if slope_ab == f32::INFINITY || slope_ab == f32::NEG_INFINITY {
         let y = slope_cd * a.x + intercept_cd;
         return Some(Vector2::new(a.x, y));
     }
     
-    if slope_cd == f32::INFINITY {
+    if slope_cd == f32::INFINITY || slope_cd == f32::NEG_INFINITY {
         let y = slope_ab * c.x + intercept_ab;
         return Some(Vector2::new(c.x, y));
     }
-
+        
     let x = (intercept_cd - intercept_ab) / (slope_ab - slope_cd);
     let y = slope_ab * x + intercept_ab;
 
     Some(Vector2::new(x, y))
 }
 
-pub(crate) fn triangulate_stroke(vertices: &[Vector2<f32>], stroke: &RDStroke) -> (Vec<Vector2<f32>>, Vec<u32>) {
+pub(crate) fn triangulate_stroke(points: &[Vector2<f32>], stroke: &RDStroke) -> (Vec<Vector2<f32>>, Vec<u32>) {
     let mut vertices = vec![];
     let mut indicies = vec![];
 
+    for i in 0..points.len() {
+        let last_idx = if i != 0 { i - 1 } else { points.len() - 1 };
+        let next_idx = if i + 1 == points.len() { 0 } else { i + 1 }; 
+
+        let current: Vector2<f32> = points[i];
+        let last: Vector2<f32> = points[last_idx] - current;
+        let next: Vector2<f32> = points[next_idx] - current;
+
+        let perp_last = Vector2::new(-last.y, last.x);
+        let perp_next = Vector2::new(-next.y, next.x);
+
+        let offset_last = perp_last.normalize() * stroke.weight * 0.5;
+        let offset_next = perp_next.normalize() * stroke.weight * 0.5;
+
+        let intersection1 = intersect_lines(
+            last + offset_last, 
+            offset_last, 
+            next + offset_next, 
+            offset_next,
+        );
+        
+        let intersection2 = intersect_lines(
+            last - offset_last, 
+            -offset_last, 
+            next - offset_next, 
+            -offset_next,
+        );
+
+        vertices.push(intersection1.unwrap());
+        vertices.push(intersection2.unwrap());
+    }
+
+    for i in 0..vertices.len()/2-1 {
+        let i: u32 = i as u32;
+
+        indicies.push(0 + i * 2);
+        indicies.push(1 + i * 2);
+        indicies.push(3 + i * 2);
+        
+        indicies.push(0 + i * 2);
+        indicies.push(3 + i * 2);
+        indicies.push(2 + i * 2);
+    }
+
+    let len_u32: u32 = vertices.len() as u32;
+
+    indicies.push(len_u32 - 2);
+    indicies.push(len_u32 - 1);
+    indicies.push(1);
+    
+    indicies.push(len_u32 - 2);
+    indicies.push(1);
+    indicies.push(0);
 
     (vertices, indicies)
 }
@@ -94,6 +147,9 @@ mod tests {
         assert_eq!(intersect_lines(Vector2::new(0.0, 0.0), Vector2::new(5.0, 5.0), Vector2::new(10.0, 0.0), Vector2::new(10.0, 20.0)), Some(Vector2::new(10.0, 10.0)));
         assert_eq!(intersect_lines(Vector2::new(0.0, 0.0), Vector2::new(2.5, 2.5), Vector2::new(10.0, 0.0), Vector2::new(7.5, 2.5)), Some(Vector2::new(5.0, 5.0)));
         assert_eq!(intersect_lines(Vector2::new(0.0, 0.0), Vector2::new(5.0, 5.0), Vector2::new(10.0, 0.0), Vector2::new(5.0, 5.0)), Some(Vector2::new(5.0, 5.0)));
+
+        assert_eq!(intersect_lines(Vector2::new(-5.0, 10.0), Vector2::new(-5.0, 0.0), Vector2::new(10.0, 5.0), Vector2::new(0.0, 5.0)), Some(Vector2::new(-5.0, 5.0)));
+
         assert_eq!(intersect_lines(Vector2::new(0.0, 0.0), Vector2::new(0.0, 5.0), Vector2::new(10.0, 0.0), Vector2::new(10.0, 5.0)), None);
     }
 
@@ -106,6 +162,34 @@ mod tests {
         assert_eq!( within_triangle( Vector2::new(0.0, 0.0), Vector2::new(10.0, 0.0), Vector2::new(10.0, 10.0), Vector2::new(10.0, 0.0)), false);
         assert_eq!( within_triangle( Vector2::new(0.0, 0.0), Vector2::new(10.0, 0.0), Vector2::new(10.0, 10.0), Vector2::new(10.0, 10.0)), false);
         assert_eq!( within_triangle( Vector2::new(0.0, 0.0), Vector2::new(10.0, 0.0), Vector2::new(10.0, 10.0), Vector2::new(0.0, 0.0)), false);
+    }
+
+    #[test]
+    fn test_triangulate_stroke() {
+        assert_eq!(triangulate_stroke(&vec![
+            Vector2::new(0.0, 0.0),
+            Vector2::new(10.0, 0.0),
+            Vector2::new(10.0, 10.0),
+            Vector2::new(0.0, 10.0),
+        ], &RDStroke::default()), (vec![
+            Vector2::new(5.0, 5.0),
+            Vector2::new(-5.0, -5.0),
+            Vector2::new(5.0, 5.0),
+            Vector2::new(15.0, -5.0),
+            Vector2::new(5.0, 5.0),
+            Vector2::new(15.0, 15.0),
+            Vector2::new(5.0, 5.0),
+            Vector2::new(-5.0, 15.0),
+        ], vec![
+            0, 1, 3,
+            0, 3, 2,
+            2, 3, 5,
+            2, 5, 4,
+            4, 5, 7,
+            4, 7, 6,
+            6, 7, 1,
+            6, 1, 0
+        ]));
     }
     
     #[test]
