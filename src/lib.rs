@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytemuck::{Pod, Zeroable};
-use path_builder::RDObject;
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -30,10 +29,6 @@ struct GfxState {
 }
 
 pub struct Raindeer {
-    objects: Vec<RDObject>,
-    new_object_cache: bool,
-    indicies_count: u32,
-
     size: winit::dpi::PhysicalSize<u32>,
 
     window: Option<Arc<Window>>,
@@ -146,9 +141,6 @@ impl Raindeer {
         event_loop.set_control_flow(ControlFlow::Poll);
 
         Self {
-            indicies_count: 0,
-            new_object_cache: false,
-            objects: vec![],
             size: PhysicalSize::new(800, 800),
             window: None,
             gfx_state: None,
@@ -165,11 +157,6 @@ impl Raindeer {
             gfx.config.height = new_size.height;
             gfx.surface.configure(&gfx.device, &gfx.config);
         }
-    }
-
-    pub fn add_object(&mut self, object: RDObject) {
-        self.new_object_cache = true;
-        self.objects.push(object);
     }
 
     pub async fn async_init_graphics(&mut self, window: Arc<Window>) {
@@ -345,37 +332,6 @@ impl Raindeer {
         pollster::block_on(self.async_init_graphics(window));
     }
 
-    fn collect_gfx_storage_data(&self) -> Vec<RDObjectGFXData> {
-        let mut all_storage = vec![];
-
-        for object in self.objects.iter() {
-            all_storage.append(&mut object.gfx_storage_output());
-        }
-
-        all_storage
-    }
-
-    fn collect_gfx_vertex_data(&self) -> (Vec<Vertex>, Vec<u32>) {
-        let mut all_verticies = vec![];
-        let mut all_indicies = vec![];
-
-        let mut accumulated_size = 0;
-
-        for (i, object) in self.objects.iter().enumerate() {
-            let (mut verticies, indicies) = object.gfx_vertex_output(i as u32);
-
-            all_verticies.append(&mut verticies);
-
-            for index in indicies.iter() {
-                all_indicies.push(index + accumulated_size);
-            }
-
-            accumulated_size += verticies.len() as u32;
-        }
-
-        (all_verticies, all_indicies)
-    }
-
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let mut gfx_wrapper = self.gfx_state.take();
         let Some(ref mut gfx) = gfx_wrapper else { panic!("gfx state uninitialized"); };
@@ -387,47 +343,37 @@ impl Raindeer {
             label: Some("Render Encoder"),
         });
 
-        if self.new_object_cache {
-            let (verticies, indicies) = self.collect_gfx_vertex_data();
+        //gfx.queue.write_buffer(&gfx.vertex_buffer, 0, bytemuck::cast_slice(&verticies));
+        //gfx.queue.write_buffer(&gfx.index_buffer, 0, bytemuck::cast_slice(&indicies));
+        //gfx.queue.write_buffer(&gfx.storage_buffer, 0, bytemuck::cast_slice(&storage));
 
-            gfx.queue.write_buffer(&gfx.vertex_buffer, 0, bytemuck::cast_slice(&verticies));
-            gfx.queue.write_buffer(&gfx.index_buffer, 0, bytemuck::cast_slice(&indicies));
+        //{
+        //    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        //        label: Some("Render Pass"),
+        //        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+        //            view: &view,
+        //            resolve_target: None,
+        //            ops: wgpu::Operations {
+        //                load: wgpu::LoadOp::Clear(wgpu::Color {
+        //                    r: 0.1,
+        //                    g: 0.2,
+        //                    b: 0.3,
+        //                    a: 1.0,
+        //                }),
+        //                store: wgpu::StoreOp::Store,
+        //            },
+        //        })],
+        //        depth_stencil_attachment: None,
+        //        occlusion_query_set: None,
+        //        timestamp_writes: None,
+        //    });
 
-            self.indicies_count = indicies.len() as u32;
-            self.new_object_cache = false;
-        }
-
-        let storage = self.collect_gfx_storage_data();
-
-        gfx.queue.write_buffer(&gfx.storage_buffer, 0, bytemuck::cast_slice(&storage));
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
-
-            render_pass.set_pipeline(&gfx.render_pipeline);
-            render_pass.set_bind_group(0, &gfx.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(gfx.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..self.indicies_count as u32, 0, 0..1);
-        }
+        //    render_pass.set_pipeline(&gfx.render_pipeline);
+        //    render_pass.set_bind_group(0, &gfx.bind_group, &[]);
+        //    render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
+        //    render_pass.set_index_buffer(gfx.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        //    render_pass.draw_indexed(0..self.indicies_count as u32, 0, 0..1);
+        //}
 
         // submit will accept anything that implements IntoIter
         gfx.queue.submit(std::iter::once(encoder.finish()));

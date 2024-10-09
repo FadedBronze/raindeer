@@ -48,9 +48,6 @@ pub(crate) fn triangulate_stroke(points: &[Vector2<f32>], stroke: &RDStroke) -> 
         let a: Vector2<f32> = points[last_idx];
         let b: Vector2<f32> = points[i];
         let c: Vector2<f32> = points[next_idx];
-        
-        println!("{:?}", a);
-        println!("{:?}", c);
 
         let offset_a = perp_left(a-b).normalize() * stroke.weight * 0.5;
         let offset_c = perp_right(c-b).normalize() * stroke.weight * 0.5;
@@ -68,23 +65,23 @@ pub(crate) fn triangulate_stroke(points: &[Vector2<f32>], stroke: &RDStroke) -> 
     for i in 0..vertices.len()/2-1 {
         let i: u32 = i as u32;
 
-        indicies.push(0 + i * 2);
         indicies.push(1 + i * 2);
+        indicies.push(0 + i * 2);
         indicies.push(3 + i * 2);
         
-        indicies.push(0 + i * 2);
         indicies.push(3 + i * 2);
+        indicies.push(0 + i * 2);
         indicies.push(2 + i * 2);
     }
 
     let len_u32: u32 = vertices.len() as u32;
 
-    indicies.push(len_u32 - 2);
     indicies.push(len_u32 - 1);
+    indicies.push(len_u32 - 2);
     indicies.push(1);
     
-    indicies.push(len_u32 - 2);
     indicies.push(1);
+    indicies.push(len_u32 - 2);
     indicies.push(0);
 
     (vertices, indicies)
@@ -186,14 +183,14 @@ mod tests {
             Vector2::new(-5.0, 15.0),
             Vector2::new(5.0, 5.0),
         ], vec![
-            0, 1, 3,
-            0, 3, 2,
-            2, 3, 5,
-            2, 5, 4,
-            4, 5, 7,
-            4, 7, 6,
-            6, 7, 1,
-            6, 1, 0
+            1, 0, 3,
+            3, 0, 2,
+            3, 2, 5,
+            5, 2, 4,
+            5, 4, 7,
+            7, 4, 6,
+            7, 6, 1,
+            1, 6, 0
         ]));
         
         assert_eq!(triangulate_stroke(&vec![
@@ -214,14 +211,14 @@ mod tests {
             Vector2::new(-1.0, 11.0),
             Vector2::new(1.0, 9.0),
         ], vec![
-            0, 1, 3,
-            0, 3, 2,
-            2, 3, 5,
-            2, 5, 4,
-            4, 5, 7,
-            4, 7, 6,
-            6, 7, 1,
-            6, 1, 0
+            1, 0, 3,
+            3, 0, 2,
+            3, 2, 5,
+            5, 2, 4,
+            5, 4, 7,
+            7, 4, 6,
+            7, 6, 1,
+            1, 6, 0
         ]));
     }
     
