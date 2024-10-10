@@ -1,12 +1,14 @@
 mod triangulate;
 pub mod color;
 pub mod path_builder;
+pub mod scene;
 
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
 use bytemuck::{Pod, Zeroable};
+use scene::{RDScene, VAO};
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -29,6 +31,7 @@ struct GfxState {
 }
 
 pub struct Raindeer {
+    pub scene: RDScene,
     size: winit::dpi::PhysicalSize<u32>,
 
     window: Option<Arc<Window>>,
@@ -38,7 +41,8 @@ pub struct Raindeer {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct Vertex {
+pub struct RDVertex {
+    color: [u8; 4],
     position: [f32; 2],
     texture_position: [f32; 2],
     id: u32,
@@ -46,34 +50,38 @@ pub struct Vertex {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct RDObjectGFXData {
-    color: [f32; 4],
+pub struct RDStorage {
     transform: [[f32; 4]; 4],
     texture: u32,
 }
 
-unsafe impl Zeroable for RDObjectGFXData {}
-unsafe impl Pod for RDObjectGFXData {}
+unsafe impl Zeroable for RDStorage {}
+unsafe impl Pod for RDStorage {}
 
-impl Vertex {
+impl RDVertex {
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<RDVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x2,
+                    format: wgpu::VertexFormat::Uint8x4,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    offset: std::mem::size_of::<[u8; 4]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
+                    shader_location: 3,
                     format: wgpu::VertexFormat::Uint32,
                 }
             ]
@@ -81,8 +89,8 @@ impl Vertex {
     }
 }
 
-unsafe impl Zeroable for Vertex {}
-unsafe impl Pod for Vertex {}
+unsafe impl Zeroable for RDVertex {}
+unsafe impl Pod for RDVertex {}
 
 impl ApplicationHandler for Raindeer {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -141,6 +149,7 @@ impl Raindeer {
         event_loop.set_control_flow(ControlFlow::Poll);
 
         Self {
+            scene: RDScene::new(),
             size: PhysicalSize::new(800, 800),
             window: None,
             gfx_state: None,
@@ -230,7 +239,7 @@ impl Raindeer {
                 label: Some("Storage Buffer"),
                 mapped_at_creation: false,
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                size: std::mem::size_of::<Vertex>() as u64 * 16384,
+                size: std::mem::size_of::<RDVertex>() as u64 * 16384,
             }
         );
         
@@ -261,7 +270,7 @@ impl Raindeer {
                 module: &shader,
                 entry_point: "vs_main", // 1.
                 buffers: &[
-                    Vertex::desc(),
+                    RDVertex::desc(),
                 ], // 2.
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
@@ -302,7 +311,7 @@ impl Raindeer {
                 label: Some("Vertex Buffer"),
                 mapped_at_creation: false,
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                size: std::mem::size_of::<Vertex>() as u64 * 16384,
+                size: std::mem::size_of::<RDVertex>() as u64 * 16384,
             }
         );
                 
@@ -343,37 +352,45 @@ impl Raindeer {
             label: Some("Render Encoder"),
         });
 
-        //gfx.queue.write_buffer(&gfx.vertex_buffer, 0, bytemuck::cast_slice(&verticies));
-        //gfx.queue.write_buffer(&gfx.index_buffer, 0, bytemuck::cast_slice(&indicies));
-        //gfx.queue.write_buffer(&gfx.storage_buffer, 0, bytemuck::cast_slice(&storage));
+        if self.scene.vertex_cache {
+            let VAO { vertices, indicies } = self.scene.output_gfx_vao();
 
-        //{
-        //    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //        label: Some("Render Pass"),
-        //        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //            view: &view,
-        //            resolve_target: None,
-        //            ops: wgpu::Operations {
-        //                load: wgpu::LoadOp::Clear(wgpu::Color {
-        //                    r: 0.1,
-        //                    g: 0.2,
-        //                    b: 0.3,
-        //                    a: 1.0,
-        //                }),
-        //                store: wgpu::StoreOp::Store,
-        //            },
-        //        })],
-        //        depth_stencil_attachment: None,
-        //        occlusion_query_set: None,
-        //        timestamp_writes: None,
-        //    });
+            gfx.queue.write_buffer(&gfx.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
+            gfx.queue.write_buffer(&gfx.index_buffer, 0, bytemuck::cast_slice(&indicies));
 
-        //    render_pass.set_pipeline(&gfx.render_pipeline);
-        //    render_pass.set_bind_group(0, &gfx.bind_group, &[]);
-        //    render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
-        //    render_pass.set_index_buffer(gfx.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        //    render_pass.draw_indexed(0..self.indicies_count as u32, 0, 0..1);
-        //}
+            self.scene.index_count = indicies.len() as u32;
+        }
+
+        let storage = self.scene.output_gfx_storage();
+        gfx.queue.write_buffer(&gfx.storage_buffer, 0, bytemuck::cast_slice(&storage));
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            render_pass.set_pipeline(&gfx.render_pipeline);
+            render_pass.set_bind_group(0, &gfx.bind_group, &[]);
+            render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(gfx.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..self.scene.index_count, 0, 0..1);
+        }
 
         // submit will accept anything that implements IntoIter
         gfx.queue.submit(std::iter::once(encoder.finish()));

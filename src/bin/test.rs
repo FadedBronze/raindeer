@@ -16,8 +16,9 @@ fn main() -> ExitCode {
         })
         .fill(RDColor::RED);
 
-    //square.rotate_deg(45.0);
-    //square.scale(Vector2::new(1, 1)); 
+    let square = path.to_node();
+
+    renderer.scene.add_root(square);
 
     loop {
         if let Err(exitcode) = renderer.run() {
