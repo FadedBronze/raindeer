@@ -42,7 +42,7 @@ impl VAO {
         let VAO { mut vertices, indicies, .. } = other;
 
         for index in indicies {
-            self.indicies.push(index + vertices.len() as u32)
+            self.indicies.push(index + self.vertices.len() as u32)
         }
 
         self.vertices.append(&mut vertices);
@@ -85,7 +85,7 @@ impl RDScene {
     pub fn new() -> Self {
         Self {
             index_count: 0,
-            vertex_cache: false,
+            vertex_cache: true,
             root: RDNode {
                 mesh: None,
                 children: vec![],
@@ -107,18 +107,25 @@ impl RDScene {
         self.vertex_cache = false;
     }
 
-    fn recurse_output_gfx_vertex_index(node: &RDNode, vao: &mut VAO) {
+    fn recurse_output_gfx_vao(node: &RDNode, vao: &mut VAO, counter: &mut u32) {
         if let Some(mesh) = &node.mesh {
-            vao.merge(mesh.vao.clone());
+            let mut new_vao = mesh.vao.clone();
+            for vertex in new_vao.vertices.iter_mut() {
+                vertex.id = *counter;
+            }
+
+            vao.merge(new_vao);
+            *counter += 1;
         }
 
         for child in node.children.iter() {
-            RDScene::recurse_output_gfx_vertex_index(child, vao);
+            RDScene::recurse_output_gfx_vao(child, vao, counter);
         }
     }
     pub fn output_gfx_vao(&self) -> VAO {
         let mut vao = VAO::new();
-        RDScene::recurse_output_gfx_vertex_index(&self.root, &mut vao);
+        let mut counter: u32 = 0;
+        RDScene::recurse_output_gfx_vao(&self.root, &mut vao, &mut counter);
         vao
     }
 

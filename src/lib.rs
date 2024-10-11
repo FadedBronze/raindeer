@@ -3,6 +3,7 @@ pub mod color;
 pub mod path_builder;
 pub mod scene;
 
+use std::num::NonZero;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -48,7 +49,7 @@ pub struct RDVertex {
     id: u32,
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Copy, Clone, Debug)]
 pub struct RDStorage {
     transform: [[f32; 4]; 4],
@@ -187,7 +188,7 @@ impl Raindeer {
 
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
-                required_features: wgpu::Features::empty(),
+                required_features: wgpu::Features::default(),
                 required_limits: wgpu::Limits::default(),
                 label: None,
                 memory_hints: Default::default(),
@@ -239,7 +240,7 @@ impl Raindeer {
                 label: Some("Storage Buffer"),
                 mapped_at_creation: false,
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                size: std::mem::size_of::<RDVertex>() as u64 * 16384,
+                size: std::mem::size_of::<RDStorage>() as u64 * 16384,
             }
         );
         
@@ -351,18 +352,23 @@ impl Raindeer {
         let mut encoder = gfx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder"),
         });
+        
+        let storage = self.scene.output_gfx_storage();
+        gfx.queue.write_buffer(&gfx.storage_buffer, 0, bytemuck::cast_slice(&storage));
 
-        if self.scene.vertex_cache {
+        if !self.scene.vertex_cache {
             let VAO { vertices, indicies } = self.scene.output_gfx_vao();
+
+            println!("{:#?}", storage);
+            println!("{:#?}", vertices);
+            println!("{:?}", indicies);
 
             gfx.queue.write_buffer(&gfx.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
             gfx.queue.write_buffer(&gfx.index_buffer, 0, bytemuck::cast_slice(&indicies));
 
+            self.scene.vertex_cache = true;
             self.scene.index_count = indicies.len() as u32;
         }
-
-        let storage = self.scene.output_gfx_storage();
-        gfx.queue.write_buffer(&gfx.storage_buffer, 0, bytemuck::cast_slice(&storage));
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

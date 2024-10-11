@@ -120,7 +120,7 @@ impl RDPath {
                 RDNode {
                     mesh: Some(RDMesh {
                         texture: 0,
-                        vao: fill_vao,
+                        vao: stroke_vao,
                     }),
                     children: vec![],
                     transform: RDTransform::default(),
@@ -128,11 +128,11 @@ impl RDPath {
                 RDNode {
                     mesh: Some(RDMesh {
                         texture: 0,
-                        vao: stroke_vao,
+                        vao: fill_vao,
                     }),
                     children: vec![],
                     transform: RDTransform::default(),
-                }
+                },
             ]
         }
     }
