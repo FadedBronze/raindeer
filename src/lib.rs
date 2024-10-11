@@ -149,7 +149,7 @@ impl Raindeer {
         event_loop.set_control_flow(ControlFlow::Poll);
 
         Self {
-            scene: RDScene::new(),
+            scene: RDScene::new(10),
             size: PhysicalSize::new(800, 800),
             window: None,
             gfx_state: None,
@@ -352,7 +352,7 @@ impl Raindeer {
             label: Some("Render Encoder"),
         });
         
-        let storage = self.scene.output_gfx_storage();
+        let storage = self.scene.output_gfx_storage(self.size.height as f32, self.size.width as f32);
         gfx.queue.write_buffer(&gfx.storage_buffer, 0, bytemuck::cast_slice(&storage));
 
         if !self.scene.vertex_cache {

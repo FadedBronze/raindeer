@@ -9,9 +9,9 @@ pub struct RDTransform {
 
 impl RDTransform {
     pub fn to_matrix(&self) -> Matrix4<f32> {
+        Matrix4::from_translation(Vector3::new(self.position.x, self.position.y, 0.0)) *
         Matrix4::from_angle_z(Rad(self.rotation)) * 
-            Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, 0.0) *
-            Matrix4::from_translation(Vector3::new(self.position.x, self.position.y, 0.0))
+            Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, 0.0)
     }
 }
 
@@ -76,14 +76,16 @@ pub struct RDNode {
 }
 
 pub struct RDScene {
+    ppu: u32,
     root: RDNode,
     pub(crate) index_count: u32,
     pub(crate) vertex_cache: bool,
 }
 
 impl RDScene {
-    pub fn new() -> Self {
+    pub fn new(ppu: u32) -> Self {
         Self {
+            ppu,
             index_count: 0,
             vertex_cache: true,
             root: RDNode {
@@ -145,9 +147,11 @@ impl RDScene {
             RDScene::recurse_output_gfx_storage(matrix, child, buffer);
         }
     }
-    pub fn output_gfx_storage(&self) -> Vec<RDStorage> {
+    pub fn output_gfx_storage(&self, height: f32, width: f32) -> Vec<RDStorage> {
+        let aspect = height / width;
+        let onscreen_units = self.ppu as f32 / height;
         let mut output = vec![];
-        RDScene::recurse_output_gfx_storage(Matrix4::identity(), &self.root, &mut output);
+        RDScene::recurse_output_gfx_storage(Matrix4::from_nonuniform_scale(aspect * onscreen_units, onscreen_units, 1.0), &self.root, &mut output);
         output
     }
 }

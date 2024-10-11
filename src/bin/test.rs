@@ -6,24 +6,24 @@ fn main() -> ExitCode {
 
     let path = RDPath::new()
         .to(0.0, 0.0)
-        .line(0.1, 0.0)
-        .line(0.1, 0.1)
-        .line(0.0, 0.1)
+        .line(10.0, 0.0)
+        .line(10.0, 10.0)
+        .line(0.0, 10.0)
         .close()
         .stroke(RDStroke {
-            weight: 0.04,
+            weight: 4.0,
             color: RDColor::BLACK,
         })
         .fill(RDColor::RED);
     
     let path2 = RDPath::new()
         .to(0.0, 0.0)
-        .line(0.1, 0.0)
-        .line(0.1, 0.1)
-        .line(0.0, 0.1)
+        .line(10.0, 0.0)
+        .line(10.0, 10.0)
+        .line(0.0, 10.0)
         .close()
         .stroke(RDStroke {
-            weight: 0.07,
+            weight: 4.0,
             color: RDColor::GREEN,
         })
         .fill(RDColor::BLUE);
@@ -31,9 +31,8 @@ fn main() -> ExitCode {
     let mut square = path.to_node();
     let square2 = path2.to_node();
 
-    square.transform.position.x += 0.2;
-    square.transform.scale.x = 2.0;
-    square.transform.scale.y = 2.0;
+    square.transform.position.x += 15.0;
+    square.transform.scale.x += 2.0;
 
     renderer.scene.add_root(square);
     renderer.scene.add_root(square2);
