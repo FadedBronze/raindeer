@@ -5,10 +5,10 @@ fn main() -> ExitCode {
     let mut renderer = Raindeer::new();
 
     let path = RDPath::new()
-        .to(0.0, 0.0)
-        .line(10.0, 0.0)
-        .line(10.0, 10.0)
-        .line(0.0, 10.0)
+        .to(-5.0, -5.0)
+        .line(5.0, -5.0)
+        .line(5.0, 5.0)
+        .line(-5.0, 5.0)
         .close()
         .stroke(RDStroke {
             weight: 4.0,
@@ -17,10 +17,10 @@ fn main() -> ExitCode {
         .fill(RDColor::RED);
     
     let path2 = RDPath::new()
-        .to(0.0, 0.0)
-        .line(10.0, 0.0)
-        .line(10.0, 10.0)
-        .line(0.0, 10.0)
+        .to(-5.0, -5.0)
+        .line(5.0, -5.0)
+        .line(5.0, 5.0)
+        .line(-5.0, 5.0)
         .close()
         .stroke(RDStroke {
             weight: 4.0,
@@ -31,8 +31,9 @@ fn main() -> ExitCode {
     let mut square = path.to_node();
     let square2 = path2.to_node();
 
-    square.transform.position.x += 15.0;
-    square.transform.scale.x += 2.0;
+    //square.transform.position.x += 15.0;
+    square.transform.scale.x = 2.0;
+    square.transform.scale.y = 2.0;
 
     renderer.scene.add_root(square);
     renderer.scene.add_root(square2);

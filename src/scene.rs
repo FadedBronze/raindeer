@@ -1,4 +1,4 @@
-use cgmath::{Matrix4, Rad, SquareMatrix, Vector2, Vector3, Zero};
+use cgmath::{Matrix4, Rad, Vector2, Vector3, Zero};
 use crate::{RDStorage, RDVertex};
 
 pub struct RDTransform {
@@ -11,7 +11,7 @@ impl RDTransform {
     pub fn to_matrix(&self) -> Matrix4<f32> {
         Matrix4::from_translation(Vector3::new(self.position.x, self.position.y, 0.0)) *
         Matrix4::from_angle_z(Rad(self.rotation)) * 
-            Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, 0.0)
+        Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, 0.0)
     }
 }
 
