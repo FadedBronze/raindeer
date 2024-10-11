@@ -3,7 +3,6 @@ pub mod color;
 pub mod path_builder;
 pub mod scene;
 
-use std::num::NonZero;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -43,7 +42,7 @@ pub struct Raindeer {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct RDVertex {
-    color: [u8; 4],
+    color: u32,
     position: [f32; 2],
     texture_position: [f32; 2],
     id: u32,
@@ -68,7 +67,7 @@ impl RDVertex {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: wgpu::VertexFormat::Uint8x4,
+                    format: wgpu::VertexFormat::Uint32,
                 },
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[u8; 4]>() as wgpu::BufferAddress,

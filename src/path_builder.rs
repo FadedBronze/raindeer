@@ -88,7 +88,7 @@ impl RDPath {
                         id: 0,
                         position: point.clone().into(),
                         texture_position: [0.0, 0.0], 
-                        color: self.stroke.color.clone().into(), 
+                        color: self.stroke.color.clone().to_u32(), 
                     })
                 }
 
@@ -105,7 +105,7 @@ impl RDPath {
                     id: 0,
                     position: point.clone().into(),
                     texture_position: [0.0, 0.0], 
-                    color: self.color.clone().into(), 
+                    color: self.color.to_u32(), 
                 })
             }
 

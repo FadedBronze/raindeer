@@ -24,9 +24,9 @@ fn main() -> ExitCode {
         .close()
         .stroke(RDStroke {
             weight: 0.07,
-            color: RDColor::BLACK,
+            color: RDColor::GREEN,
         })
-        .fill(RDColor::RED);
+        .fill(RDColor::BLUE);
 
     let mut square = path.to_node();
     let square2 = path2.to_node();

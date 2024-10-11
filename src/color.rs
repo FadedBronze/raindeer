@@ -6,12 +6,6 @@ pub struct RDColor {
     pub a: u8,
 }
 
-impl Into<[u8; 4]> for RDColor {
-    fn into(self) -> [u8; 4] {
-        [self.r, self.g, self.b, self.a]
-    }
-}
-
 impl RDColor {
     pub const RED: RDColor = RDColor::new(255, 0, 0, 255);
     pub const GREEN: RDColor = RDColor::new(0, 255, 0, 255);
@@ -24,6 +18,10 @@ impl RDColor {
     pub const BLACK: RDColor = RDColor::new(0, 0, 0, 255);
     pub const WHITE: RDColor = RDColor::new(255, 255, 255, 255);
     pub const TRANSPARENT: RDColor = RDColor::new(0, 0, 0, 0);
+    
+    pub fn to_u32(&self) -> u32 {
+        (self.r as u32) | ((self.g as u32) << 8) | ((self.b as u32) << 16) | ((self.a as u32) << 24)
+    }
 
     pub const fn new(
         r: u8,
