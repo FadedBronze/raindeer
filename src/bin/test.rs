@@ -4,7 +4,7 @@ use raindeer::{color::RDColor, path_builder::{RDPath, RDStroke}, Raindeer};
 fn main() -> ExitCode {
     let mut renderer = Raindeer::new();
 
-    let path = RDPath::new()
+    let mut square = RDPath::new()
         .to(-5.0, -5.0)
         .line(5.0, -5.0)
         .line(5.0, 5.0)
@@ -14,9 +14,10 @@ fn main() -> ExitCode {
             weight: 4.0,
             color: RDColor::BLACK,
         })
-        .fill(RDColor::RED);
+        .fill(RDColor::RED)
+        .to_node();
     
-    let path2 = RDPath::new()
+    let square2 = RDPath::new()
         .to(-5.0, -5.0)
         .line(5.0, -5.0)
         .line(5.0, 5.0)
@@ -26,10 +27,8 @@ fn main() -> ExitCode {
             weight: 4.0,
             color: RDColor::GREEN,
         })
-        .fill(RDColor::BLUE);
-
-    let mut square = path.to_node();
-    let square2 = path2.to_node();
+        .fill(RDColor::BLUE)
+        .to_node();
 
     //square.transform.position.x += 15.0;
     square.transform.scale.x = 2.0;

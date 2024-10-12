@@ -2,6 +2,7 @@ mod triangulate;
 pub mod color;
 pub mod path_builder;
 pub mod scene;
+pub mod treemap;
 
 use std::process::ExitCode;
 use std::sync::Arc;
